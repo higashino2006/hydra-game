@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ヒドラゲーム</title>
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg:#faf9f7;
+    --fg:#2a2a2a;
+    --muted:#8a8a86;
+    --line:#3a3a38;
+    --node:#2a2a2a;
+    --node-root:#111;
+    --accent:#c0392b;
+    --accent-fg:#ffffff;
+    --panel:#ffffff;
+    --panel-border:#e4e2dc;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#171614;
+      --fg:#f0efe9;
+      --muted:#9a968c;
+      --line:#c9c6ba;
+      --node:#f0efe9;
+      --node-root:#ffffff;
+      --accent:#e0574a;
+      --accent-fg:#171614;
+      --panel:#201f1c;
+      --panel-border:#35332e;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171614;
+    --fg:#f0efe9;
+    --muted:#9a968c;
+    --line:#c9c6ba;
+    --node:#f0efe9;
+    --node-root:#ffffff;
+    --accent:#e0574a;
+    --accent-fg:#171614;
+    --panel:#201f1c;
+    --panel-border:#35332e;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{ margin:0; }
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+    padding:24px 16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:16px;
+  }
+  h1{
+    font-size:1.15rem;
+    font-weight:700;
+    letter-spacing:.01em;
+    margin:0;
+  }
+  .wrap{
+    width:100%;
+    max-width:720px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+  }
+  .statusbar{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:10px 16px;
+    flex:1;
+    min-width:120px;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .stat .label{
+    font-size:.7rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+  }
+  .stat .value{
+    font-size:1.3rem;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .board{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:12px;
+    padding:8px;
+    overflow:auto;
+    max-height:60vh;
+  }
+  svg{ display:block; width:100%; height:auto; }
+  .edge{ stroke:var(--line); stroke-width:.045; }
+  .node{
+    fill:var(--node);
+    stroke:var(--bg);
+    stroke-width:.045;
+    cursor:pointer;
+    transition:fill .1s;
+  }
+  .node.root{ fill:var(--node-root); cursor:default; }
+  .node:hover:not(.root){ fill:var(--accent); }
+  .hitarea{ fill:transparent; cursor:pointer; }
+  .controls{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:14px 16px;
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  label{ font-size:.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  input[type=number]{
+    width:64px;
+    padding:6px 8px;
+    border-radius:6px;
+    border:1px solid var(--panel-border);
+    background:var(--bg);
+    color:var(--fg);
+    font-size:.9rem;
+  }
+  button{
+    font-family:inherit;
+    font-size:.85rem;
+    font-weight:600;
+    padding:8px 16px;
+    border-radius:8px;
+    border:1px solid var(--panel-border);
+    background:var(--bg);
+    color:var(--fg);
+    cursor:pointer;
+  }
+  button.primary{
+    background:var(--accent);
+    color:var(--accent-fg);
+    border-color:var(--accent);
+  }
+  button:hover{ opacity:.85; }
+  .rule{
+    font-size:.8rem;
+    color:var(--muted);
+    line-height:1.6;
+  }
+  .win{
+    background:var(--panel);
+    border:1px solid var(--accent);
+    border-radius:10px;
+    padding:14px 16px;
+    text-align:center;
+    font-weight:700;
+    color:var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<h1>ヒドラゲーム</h1>
+<div class="wrap">
+  <div class="statusbar">
+    <div class="stat"><span class="label">手数</span><span class="value" id="turns">0</span></div>
+    <div class="stat"><span class="label">頭の数</span><span class="value" id="heads">0</span></div>
+  </div>
+
+  <div id="winbox" class="win" hidden>クリア! 全ての頭を切り落としました(手数: <span id="winturns"></span>)</div>
+
+  <div class="board">
+    <svg id="svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="controls">
+    <label>初期の頭の数
+      <input id="initCount" type="number" min="1" max="12" value="4">
+    </label>
+    <label><input id="growModeToggle" type="checkbox"> 手数分増殖モード</label>
+    <button class="primary" id="resetBtn">やり直す</button>
+  </div>
+
+  <p class="rule">
+    根(一番下の点)から遠いほど「上」。点(頭)をクリックすると、その頭とそこから上に連なる頭が全て切り落とされる。<br>
+    切った頭の「親」を p、p の親を g(祖父母)とすると、g が存在する場合は g の(切った後の)子たち全体をコピーして g に追加する。p が根そのものの場合(g が存在しない)は増殖しない。<br>
+    複製する回数は、通常は1回。「手数分増殖モード」を有効にした状態で切ると、その操作に限り現在の手数の回数だけ複製する。
+  </p>
+</div>
+
+<script>
+(function(){
+  var svg = document.getElementById('svg');
+  var turnsEl = document.getElementById('turns');
+  var headsEl = document.getElementById('heads');
+  var winbox = document.getElementById('winbox');
+  var winturns = document.getElementById('winturns');
+  var initInput = document.getElementById('initCount');
+  var resetBtn = document.getElementById('resetBtn');
+  var growModeToggle = document.getElementById('growModeToggle');
+
+  var nodes; // id -> {id, parent, children:[], depth}
+  var nextId;
+  var turns;
+  var rootId;
+
+  function makeInitialChain(n){
+    nodes = {};
+    nextId = 0;
+    var prev = null;
+    for (var i = 0; i < n; i++){
+      var id = nextId++;
+      nodes[id] = { id: id, parent: prev, children: [], depth: i };
+      if (prev !== null) nodes[prev].children.push(id);
+      prev = id;
+    }
+    rootId = 0;
+    turns = 0;
+  }
+
+  function recomputeDepths(){
+    var stack = [rootId];
+    nodes[rootId].depth = 0;
+    while (stack.length){
+      var id = stack.pop();
+      var d = nodes[id].depth;
+      nodes[id].children.forEach(function(c){
+        nodes[c].depth = d + 1;
+        stack.push(c);
+      });
+    }
+  }
+
+  function cloneSubtree(id, parentId){
+    var n = nodes[id];
+    var newId = nextId++;
+    nodes[newId] = { id: newId, parent: parentId, children: [], depth: 0 };
+    n.children.forEach(function(c){
+      var newChild = cloneSubtree(c, newId);
+      nodes[newId].children.push(newChild);
+    });
+    return newId;
+  }
+
+  function cutNode(id){
+    if (id === rootId) return;
+    var node = nodes[id];
+    var parentId = node.parent; // p
+    var parent = nodes[parentId];
+    var grandparentId = parent.parent; // g
+
+    function removeSubtree(nid){
+      nodes[nid].children.forEach(removeSubtree);
+      delete nodes[nid];
+    }
+    removeSubtree(id);
+    parent.children = parent.children.filter(function(c){ return c !== id; });
+
+    turns++;
+
+    if (grandparentId !== null){
+      var grandparent = nodes[grandparentId];
+      var childrenToClone = grandparent.children.slice(); // g's children at the moment of the cut
+      var repeatCount = growModeToggle.checked ? turns : 1;
+      for (var t = 0; t < repeatCount; t++){
+        childrenToClone.forEach(function(cid){
+          var newChild = cloneSubtree(cid, grandparentId);
+          grandparent.children.push(newChild);
+        });
+      }
+    }
+
+    recomputeDepths();
+    render();
+  }
+
+  function countHeads(){
+    return Object.keys(nodes).length;
+  }
+
+  function maxDepth(){
+    var m = 0;
+    for (var k in nodes) if (nodes[k].depth > m) m = nodes[k].depth;
+    return m;
+  }
+
+  function layout(){
+    var xCounter = 0;
+    var pos = {};
+    function assignX(id){
+      var n = nodes[id];
+      if (n.children.length === 0){
+        pos[id] = { x: xCounter };
+        xCounter += 1;
+      } else {
+        var xs = [];
+        n.children.forEach(function(c){ assignX(c); xs.push(pos[c].x); });
+        pos[id] = { x: (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2 };
+      }
+    }
+    assignX(rootId);
+    return { pos: pos, width: Math.max(xCounter, 1) };
+  }
+
+  function render(){
+    var heads = countHeads();
+    turnsEl.textContent = turns;
+    headsEl.textContent = heads;
+
+    if (heads === 1){
+      winturns.textContent = turns;
+      winbox.hidden = false;
+    } else {
+      winbox.hidden = true;
+    }
+
+    var L = layout();
+    var depth = maxDepth();
+    var padX = 1, padY = 1;
+    var vbW = L.width + padX * 2;
+    var vbH = depth + padY * 2 + 1;
+
+    var svgW = Math.max(vbW, 4);
+    var svgH = vbH;
+
+    svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
+    var minHeightPx = Math.max(160, (depth + 2) * 46);
+    svg.style.minHeight = minHeightPx + 'px';
+
+    function cx(id){ return L.pos[id].x + padX + (svgW - vbW) / 2 + 0.5; }
+    function cy(id){ return svgH - (nodes[id].depth + padY) - 0.5; }
+
+    var parts = [];
+
+    for (var k in nodes){
+      var n = nodes[k];
+      if (n.parent !== null){
+        parts.push('<line class="edge" x1="' + cx(n.parent) + '" y1="' + cy(n.parent) +
+          '" x2="' + cx(n.id) + '" y2="' + cy(n.id) + '" />');
+      }
+    }
+
+    var r = 0.14, hitR = 0.4;
+    for (var k2 in nodes){
+      var n2 = nodes[k2];
+      var isRoot = n2.id === rootId;
+      if (!isRoot){
+        parts.push('<circle class="hitarea" data-id="' + n2.id +
+          '" cx="' + cx(n2.id) + '" cy="' + cy(n2.id) + '" r="' + hitR + '" />');
+      }
+      parts.push('<circle class="node' + (isRoot ? ' root' : '') + '" data-id="' + n2.id +
+        '" cx="' + cx(n2.id) + '" cy="' + cy(n2.id) + '" r="' + r + '" />');
+    }
+
+    svg.innerHTML = parts.join('');
+
+    svg.querySelectorAll('.hitarea, .node:not(.root)').forEach(function(el){
+      el.addEventListener('click', function(){
+        cutNode(parseInt(el.getAttribute('data-id'), 10));
+      });
+    });
+  }
+
+  function reset(){
+    var n = parseInt(initInput.value, 10);
+    if (!n || n < 1) n = 1;
+    if (n > 12) n = 12;
+    initInput.value = n;
+    makeInitialChain(n);
+    render();
+  }
+
+  resetBtn.addEventListener('click', reset);
+
+  reset();
+})();
+</script>
+</body>
+</html>
