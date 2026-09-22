@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ヒドラゲーム</title>
+<title>Hydra Game</title>
 <style>
   :root{
     color-scheme: light dark;
@@ -46,34 +46,39 @@
   }
 
   *{box-sizing:border-box;}
-  html,body{ margin:0; }
+  html,body{ margin:0; height:100%; }
   body{
     background:var(--bg);
     color:var(--fg);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
-    padding:24px 16px;
+    padding:16px;
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:16px;
+    gap:12px;
+    overflow:hidden;
   }
   h1{
     font-size:1.15rem;
     font-weight:700;
     letter-spacing:.01em;
     margin:0;
+    flex:none;
   }
   .wrap{
     width:100%;
     max-width:720px;
+    height:100%;
+    min-height:0;
     display:flex;
     flex-direction:column;
-    gap:16px;
+    gap:12px;
   }
   .statusbar{
     display:flex;
     gap:12px;
     flex-wrap:wrap;
+    flex:none;
   }
   .stat{
     background:var(--panel);
@@ -97,15 +102,44 @@
     font-weight:700;
     font-variant-numeric:tabular-nums;
   }
+  .board-wrap{
+    position:relative;
+    flex:1;
+    min-height:0;
+    display:flex;
+  }
   .board{
     background:var(--panel);
     border:1px solid var(--panel-border);
     border-radius:12px;
     padding:8px;
     overflow:auto;
-    max-height:60vh;
+    flex:1;
+    min-height:0;
+    min-width:0;
+    display:flex;
+    flex-direction:column-reverse;
+    align-items:center;
   }
-  svg{ display:block; width:100%; height:auto; }
+  svg{ display:block; }
+  .zoombar{
+    position:absolute;
+    top:8px;
+    right:8px;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    z-index:2;
+  }
+  .zoombar button{
+    width:32px;
+    height:32px;
+    padding:0;
+    line-height:1;
+    font-size:1rem;
+    border-radius:6px;
+    box-shadow:0 1px 4px rgba(0,0,0,.15);
+  }
   .edge{ stroke:var(--line); stroke-width:.045; }
   .node{
     fill:var(--node);
@@ -126,6 +160,7 @@
     gap:12px;
     align-items:center;
     flex-wrap:wrap;
+    flex:none;
   }
   label{ font-size:.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; }
   input[type=number]{
@@ -136,6 +171,10 @@
     background:var(--bg);
     color:var(--fg);
     font-size:.9rem;
+  }
+  input[type=number]:disabled{
+    opacity:.5;
+    cursor:not-allowed;
   }
   button{
     font-family:inherit;
@@ -158,6 +197,12 @@
     font-size:.8rem;
     color:var(--muted);
     line-height:1.6;
+    flex:none;
+  }
+  .auto-warning{
+    font-size:.75rem;
+    color:var(--accent);
+    flex-basis:100%;
   }
   .win{
     background:var(--panel);
@@ -167,54 +212,77 @@
     text-align:center;
     font-weight:700;
     color:var(--accent);
+    flex:none;
   }
 </style>
 </head>
 <body>
 
-<h1>ヒドラゲーム</h1>
+<h1>Hydra Game</h1>
 <div class="wrap">
   <div class="statusbar">
-    <div class="stat"><span class="label">手数</span><span class="value" id="turns">0</span></div>
-    <div class="stat"><span class="label">頭の数</span><span class="value" id="heads">0</span></div>
+    <div class="stat"><span class="label">Moves</span><span class="value" id="turns">0</span></div>
+    <div class="stat"><span class="label">Nodes</span><span class="value" id="heads">0</span></div>
   </div>
 
-  <div id="winbox" class="win" hidden>クリア! 全ての頭を切り落としました(手数: <span id="winturns"></span>)</div>
+  <div id="winbox" class="win" hidden>Cleared! All heads removed (moves: <span id="winturns"></span>)</div>
 
-  <div class="board">
-    <svg id="svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="board-wrap">
+    <div class="zoombar">
+      <button type="button" id="zoomInBtn" aria-label="Zoom in">+</button>
+      <button type="button" id="zoomOutBtn" aria-label="Zoom out">−</button>
+      <button type="button" id="zoomResetBtn" aria-label="Reset zoom">⤢</button>
+    </div>
+    <div class="board" id="board">
+      <svg id="svg" viewBox="0 0 100 100"></svg>
+    </div>
   </div>
 
   <div class="controls">
-    <label>初期の頭の数
+    <label>Starting nodes
       <input id="initCount" type="number" min="1" max="12" value="4">
     </label>
-    <label><input id="growModeToggle" type="checkbox"> 手数分増殖モード</label>
-    <button class="primary" id="resetBtn">やり直す</button>
+    <button class="primary" id="resetBtn">Restart</button>
+  </div>
+
+  <div class="controls">
+    <button type="button" id="autoToggleBtn">Start auto</button>
+    <label>Cuts / second
+      <input id="speedInput" type="number" min="1" max="100" step="1" value="5">
+    </label>
+    <span class="auto-warning" id="autoWarning" hidden>High speeds can make the tree grow very fast and may slow down your browser.</span>
   </div>
 
   <p class="rule">
-    根(一番下の点)から遠いほど「上」。点(頭)をクリックすると、その頭とそこから上に連なる頭が全て切り落とされる。<br>
-    切った頭の「親」を p、p の親を g(祖父母)とすると、g が存在する場合は g の(切った後の)子たち全体をコピーして g に追加する。p が根そのものの場合(g が存在しない)は増殖しない。<br>
-    複製する回数は、通常は1回。「手数分増殖モード」を有効にした状態で切ると、その操作に限り現在の手数の回数だけ複製する。
+    The farther a node is from the root (the bottom point), the higher it sits. Click a node to cut it — that node and everything above it disappears.<br>
+    Let p be the parent of the cut node, and g be p's parent. If g exists, p "awakens": the subtree rooted at p (including whatever remains of its descendants) is duplicated and attached to g, once per current move count. If p is the root itself (g doesn't exist), nothing grows.
   </p>
 </div>
 
 <script>
 (function(){
   var svg = document.getElementById('svg');
+  var board = document.getElementById('board');
   var turnsEl = document.getElementById('turns');
   var headsEl = document.getElementById('heads');
   var winbox = document.getElementById('winbox');
   var winturns = document.getElementById('winturns');
   var initInput = document.getElementById('initCount');
   var resetBtn = document.getElementById('resetBtn');
-  var growModeToggle = document.getElementById('growModeToggle');
+  var zoomInBtn = document.getElementById('zoomInBtn');
+  var zoomOutBtn = document.getElementById('zoomOutBtn');
+  var zoomResetBtn = document.getElementById('zoomResetBtn');
+  var autoToggleBtn = document.getElementById('autoToggleBtn');
+  var speedInput = document.getElementById('speedInput');
+  var autoWarning = document.getElementById('autoWarning');
 
   var nodes; // id -> {id, parent, children:[], depth}
   var nextId;
   var turns;
   var rootId;
+  var autoTimer = null;
+  var lastLayout = null; // cached from the last render(), used to find the rightmost node
+  var zoom = 1; // pixels per SVG unit, multiplied by base scale
 
   function makeInitialChain(n){
     nodes = {};
@@ -272,13 +340,9 @@
 
     if (grandparentId !== null){
       var grandparent = nodes[grandparentId];
-      var childrenToClone = grandparent.children.slice(); // g's children at the moment of the cut
-      var repeatCount = growModeToggle.checked ? turns : 1;
-      for (var t = 0; t < repeatCount; t++){
-        childrenToClone.forEach(function(cid){
-          var newChild = cloneSubtree(cid, grandparentId);
-          grandparent.children.push(newChild);
-        });
+      for (var t = 0; t < turns; t++){
+        var newChild = cloneSubtree(parentId, grandparentId);
+        grandparent.children.push(newChild);
       }
     }
 
@@ -327,6 +391,7 @@
     }
 
     var L = layout();
+    lastLayout = L;
     var depth = maxDepth();
     var padX = 1, padY = 1;
     var vbW = L.width + padX * 2;
@@ -336,8 +401,13 @@
     var svgH = vbH;
 
     svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
-    var minHeightPx = Math.max(160, (depth + 2) * 46);
-    svg.style.minHeight = minHeightPx + 'px';
+
+    var availW = board.clientWidth - 16; // minus padding
+    var availH = board.clientHeight - 16;
+    var fitUnitPx = Math.max(16, Math.min(availW / svgW, availH / svgH));
+    var unitPx = fitUnitPx * zoom;
+    svg.style.width = (svgW * unitPx) + 'px';
+    svg.style.height = (svgH * unitPx) + 'px';
 
     function cx(id){ return L.pos[id].x + padX + (svgW - vbW) / 2 + 0.5; }
     function cy(id){ return svgH - (nodes[id].depth + padY) - 0.5; }
@@ -374,16 +444,92 @@
   }
 
   function reset(){
+    stopAuto();
     var n = parseInt(initInput.value, 10);
     if (!n || n < 1) n = 1;
     if (n > 12) n = 12;
     initInput.value = n;
     makeInitialChain(n);
+    zoom = 1;
     render();
   }
 
-  resetBtn.addEventListener('click', reset);
+  var ZOOM_MIN = 0.2, ZOOM_MAX = 3, ZOOM_STEP = 1.25;
 
+  function setZoom(z){
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+    render();
+  }
+
+  function rightmostNodeId(){
+    if (!lastLayout) return null;
+    var bestId = null, bestX = -Infinity, bestDepth = -1;
+    for (var k in nodes){
+      if (nodes[k].id === rootId) continue;
+      var x = lastLayout.pos[k].x;
+      var d = nodes[k].depth;
+      if (x > bestX || (x === bestX && d > bestDepth)){
+        bestX = x; bestDepth = d; bestId = nodes[k].id;
+      }
+    }
+    return bestId;
+  }
+
+  function getCutsPerSecond(){
+    var v = parseFloat(speedInput.value);
+    if (!v || v < 0.1) v = 0.1;
+    if (v > 60) v = 60;
+    return v;
+  }
+
+  var AUTO_SAFETY_LIMIT = 20000;
+
+  function autoStep(){
+    var id = rightmostNodeId();
+    if (id === null){
+      stopAuto();
+      return;
+    }
+    cutNode(id);
+    if (countHeads() === 1 || countHeads() > AUTO_SAFETY_LIMIT) stopAuto();
+  }
+
+  function startAuto(){
+    if (autoTimer !== null) return;
+    autoToggleBtn.textContent = 'Stop auto';
+    speedInput.disabled = true;
+    var delay = 1000 / getCutsPerSecond();
+    autoTimer = setInterval(autoStep, delay);
+  }
+
+  function stopAuto(){
+    if (autoTimer !== null){
+      clearInterval(autoTimer);
+      autoTimer = null;
+    }
+    autoToggleBtn.textContent = 'Start auto';
+    speedInput.disabled = false;
+  }
+
+  function updateAutoWarning(){
+    autoWarning.hidden = getCutsPerSecond() < 15;
+  }
+
+  resetBtn.addEventListener('click', reset);
+  zoomInBtn.addEventListener('click', function(){ setZoom(zoom * ZOOM_STEP); });
+  zoomOutBtn.addEventListener('click', function(){ setZoom(zoom / ZOOM_STEP); });
+  zoomResetBtn.addEventListener('click', function(){ setZoom(1); });
+
+  autoToggleBtn.addEventListener('click', function(){
+    if (autoTimer !== null) stopAuto();
+    else startAuto();
+  });
+
+  speedInput.addEventListener('input', updateAutoWarning);
+
+  window.addEventListener('resize', render);
+
+  updateAutoWarning();
   reset();
 })();
 </script>
