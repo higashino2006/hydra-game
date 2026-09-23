@@ -200,6 +200,29 @@
     flex:none;
   }
   .rule a{ color:inherit; }
+  .rule{ position:relative; }
+  .rule-trigger{
+    text-decoration:underline dotted;
+    cursor:help;
+  }
+  .rule-popup{
+    display:none;
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:100%;
+    margin-bottom:6px;
+    background:var(--panel);
+    color:var(--fg);
+    border:1px solid var(--panel-border);
+    border-radius:10px;
+    padding:12px 14px;
+    box-shadow:0 4px 16px rgba(0,0,0,.2);
+    z-index:3;
+    cursor:auto;
+  }
+  .rule-trigger:hover .rule-popup,
+  .rule-trigger:focus .rule-popup{ display:block; }
   .auto-warning{
     font-size:.75rem;
     color:var(--accent);
@@ -254,11 +277,16 @@
     <span class="auto-warning" id="autoWarning" hidden>High speeds can make the tree grow very fast and may slow down your browser.</span>
   </div>
 
-  <p class="rule">
-    The farther a node is from the root (the bottom point), the higher it sits. Click a node to cut it — that node and everything above it disappears.<br>
-    Let p be the parent of the cut node, and g be p's parent. If g exists, p "awakens": the subtree rooted at p (including whatever remains of its descendants) is duplicated and attached to g, once per current move count. If p is the root itself (g doesn't exist), nothing grows.<br>
+  <div class="rule">
+    <span class="rule-trigger" tabindex="0">Rules
+      <span class="rule-popup" role="tooltip">
+        The farther a node is from the root (the bottom point), the higher it sits. Click a node to cut it — that node and everything above it disappears.<br>
+        Let p be the parent of the cut node, and g be p's parent. If g exists, p "awakens": the subtree rooted at p (including whatever remains of its descendants) is duplicated and attached to g, once per current move count. If p is the root itself (g doesn't exist), nothing grows.
+      </span>
+    </span>
+    ·
     <a href="https://github.com/higashino2006/hydra-game" target="_blank" rel="noopener">View source on GitHub</a>
-  </p>
+  </div>
 </div>
 
 <script>
