@@ -199,6 +199,7 @@
     line-height:1.6;
     flex:none;
   }
+  .rule a{ color:inherit; }
   .auto-warning{
     font-size:.75rem;
     color:var(--accent);
@@ -255,7 +256,8 @@
 
   <p class="rule">
     The farther a node is from the root (the bottom point), the higher it sits. Click a node to cut it — that node and everything above it disappears.<br>
-    Let p be the parent of the cut node, and g be p's parent. If g exists, p "awakens": the subtree rooted at p (including whatever remains of its descendants) is duplicated and attached to g, once per current move count. If p is the root itself (g doesn't exist), nothing grows.
+    Let p be the parent of the cut node, and g be p's parent. If g exists, p "awakens": the subtree rooted at p (including whatever remains of its descendants) is duplicated and attached to g, once per current move count. If p is the root itself (g doesn't exist), nothing grows.<br>
+    <a href="https://github.com/higashino2006/hydra-game" target="_blank" rel="noopener">View source on GitHub</a>
   </p>
 </div>
 
